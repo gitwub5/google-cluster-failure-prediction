@@ -171,9 +171,8 @@ def train_model(model, dataloader, criterion_reg, criterion_cls, optimizer, num_
         os.makedirs(metrics_dir)
 
     # CSV 파일 초기화 (헤더 작성)
-    if not os.path.exists(metrics_save_path):
-        with open(metrics_save_path, "w") as f:
-            f.write("epoch,loss,mse,rmse,r2,accuracy,precision,recall,f1_score\n")
+    with open(metrics_save_path, "w") as f:
+        f.write("epoch,loss,mse,rmse,r2,accuracy,precision,recall,f1_score\n")
 
     for epoch in range(num_epochs):
         model.train()
@@ -245,11 +244,12 @@ def train_model(model, dataloader, criterion_reg, criterion_cls, optimizer, num_
             f"Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1:.4f}")
 
 if __name__ == "__main__":
+    print("모델 학습 시작")
     # 주요 설정
     sequence_length = 100  # 슬라이딩 윈도우 크기
     batch_size = 32  # 배치 크기
-    num_epochs = 50  # 학습 반복 수
-    learning_rate = 0.0001  # 학습률
+    num_epochs = 100  # 학습 반복 수
+    learning_rate = 0.0005  # 학습률
     hidden_size = 100  # LSTM 히든 레이어 크기
     num_layers = 2  # LSTM 레이어 수
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']  # 입력 특징
@@ -273,7 +273,12 @@ if __name__ == "__main__":
     # print(f"Number of event types: {num_event_types}")
 
     # 디바이스 설정 (GPU가 가능하면 GPU 사용, 그렇지 않으면 CPU 사용)
+    print(f"CUDA available: {torch.cuda.is_available()}")
+    if torch.cuda.is_available():
+        print(f"Current device: {torch.cuda.current_device()}")
+        print(f"Device name: {torch.cuda.get_device_name(0)}")
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 
     # 데이터셋 준비 (machine_id별 슬라이딩 윈도우 생성)
     dataloaders = prepare_dataloaders(data, sequence_length, batch_size, features)
