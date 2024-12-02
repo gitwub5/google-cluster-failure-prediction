@@ -1,0 +1,8 @@
+.env
+data/google_traces_v3
+utils/google_traces_v3_json.py
+.idea/
+
+# macOS 관련 파일 무시
+.DS_Store
+*.DS_Store
