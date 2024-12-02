@@ -20,18 +20,6 @@ filtered_df = df[df['machine_id'].isin(random_machine_ids)]
 filtered_df = filtered_df.sort_values(by='event_time')
 
 # 필터링된 데이터셋 저장
-filtered_df.to_csv('./google_traces_v3/filtered_dataset.csv', index=False)
+filtered_df.to_csv('../data/google_traces_v3/output_data_sampled.csv', index=False)
 
 print(f"Filtered dataset created with {len(filtered_df)} rows.")
-
-# 실패와 성공 데이터 비율 계산
-num_failed = (filtered_df['Failed'] == 1).sum()
-num_success = (filtered_df['Failed'] == 0).sum()
-
-print(f"Failed count: {num_failed}, Success count: {num_success}")
-
-# 클래스 가중치 계산
-weight_for_0 = 1.0 / num_success  # 성공 데이터의 가중치
-weight_for_1 = 1.0 / num_failed   # 실패 데이터의 가중치
-
-print(f"Weight for 0: {weight_for_0} and 1: {weight_for_1}")

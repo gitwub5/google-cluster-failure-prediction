@@ -34,7 +34,6 @@ query = f"""
         iu.average_usage.memory AS average_usage_memory,
         iu.maximum_usage.cpus AS maximum_usage_cpus,
         iu.maximum_usage.memory AS maximum_usage_memory,
-        iu.random_sample_usage.cpus AS random_sample_usage_cpus,
         iu.assigned_memory,
         iu.page_cache_memory
     FROM `google.com:google-cluster-data.clusterdata_2019_a.collection_events` AS ce
@@ -56,7 +55,7 @@ with open(output_file, "w", newline="") as csv_file:
     headers = [
         "collection_id", "event_time", "event_type", "machine_id",
         "average_usage_cpus", "average_usage_memory", "maximum_usage_cpus", "maximum_usage_memory",
-        "random_sample_usage_cpus", "assigned_memory", "page_cache_memory"
+        "assigned_memory", "page_cache_memory"
     ]
     writer.writerow(headers)
 
@@ -66,8 +65,7 @@ with open(output_file, "w", newline="") as csv_file:
             row.collection_id, row.event_time, row.event_type, row.machine_id,
             row.average_usage_cpus, row.average_usage_memory,
             row.maximum_usage_cpus, row.maximum_usage_memory,
-            row.random_sample_usage_cpus, row.assigned_memory,
-            row.page_cache_memory
+            row.assigned_memory, row.page_cache_memory
         ]
         writer.writerow(row_data)
 

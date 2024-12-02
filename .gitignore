@@ -1,8 +1,22 @@
+# 환경설정 파일 무시
 .env
-data/google_traces_v3
-utils/google_traces_v3_json.py
-.idea/
+
+# 데이터 폴더 내 모든 파일 무시
+data/
+
+# Python 캐시 파일 무시
+__pycache__/
+*.py[cod]
+
+# Python 관련 파일 무시 (옵션)
+*.pyo
 
 # macOS 관련 파일 무시
 .DS_Store
 *.DS_Store
+
+# 기타 IDE 설정 파일 무시
+.idea/
+
+# Utils 내 특정 파일 무시
+utils/google_traces_v3_json.py
