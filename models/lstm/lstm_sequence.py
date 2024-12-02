@@ -6,7 +6,7 @@ import pandas as pd
 import os
 import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, r2_score
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # 성능 지표 저장용 딕셔너리 선언
 epoch_metrics = {
@@ -247,10 +247,10 @@ if __name__ == "__main__":
     print("모델 학습 시작")
     # 주요 설정
     sequence_length = 100  # 슬라이딩 윈도우 크기
-    batch_size = 32  # 배치 크기
+    batch_size = 64  # 배치 크기
     num_epochs = 100  # 학습 반복 수
     learning_rate = 0.0005  # 학습률
-    hidden_size = 100  # LSTM 히든 레이어 크기
+    hidden_size = 200  # LSTM 히든 레이어 크기
     num_layers = 2  # LSTM 레이어 수
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']  # 입력 특징
     input_size = len(features)  # 입력 차원 크기
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     event_embedding_dim = 3  # event_type 임베딩 차원
 
     # 데이터 파일 경로
-    file_path = '../../data/google_traces_v3/output_data_sampled.csv'
+    file_path = '../../data/google_traces_v3/output_data_preprocessed.csv.csv'
     metrics_save_path = '../../data/metrics/metrics.csv'
     model_save_path = './models/trained_lstm_model.pth'  # 모델 저장 경로
 
