@@ -1,7 +1,10 @@
+import os
 import torch
+import torch.nn as nn
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error, r2_score
+from torch.utils.data import Dataset, DataLoader, TensorDataset
 
 # LSTM 모델 클래스 정의 (이전 코드와 동일)
 class LSTMModel(nn.Module):
@@ -85,7 +88,7 @@ def predict_and_evaluate(model, dataloaders, device):
 
 if __name__ == "__main__":
     # 주요 설정
-    sequence_length = 50
+    sequence_length = 24
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
     input_size = len(features)
     output_size = len(features)
@@ -94,7 +97,7 @@ if __name__ == "__main__":
     event_embedding_dim = 3
 
     # 새로운 데이터 파일 경로
-    predict_file_path = 'new_machine_data.csv'
+    predict_file_path = '../../data/google_traces_v3/test_data.csv'
     predict_data = pd.read_csv(predict_file_path)
     predict_data = predict_data[predict_data['machine_id'] != -1]
     predict_data['event_type_idx'] = pd.Categorical(predict_data['event_type']).codes
@@ -107,18 +110,49 @@ if __name__ == "__main__":
     predict_dataloaders = prepare_predict_dataloader(predict_data, sequence_length, features)
 
     # 학습된 모델 로드
-    model_path = "performance_predict_model.pth"
+    model_path = "models/trained_lstm_model.pth"
     model = LSTMModel(input_size, hidden_size, num_layers, output_size, num_event_types, event_embedding_dim).to(device)
     model.load_state_dict(torch.load(model_path))
     print(f"Model loaded from {model_path}")
 
-    # 성능 예측 및 평가
-    predictions, actuals = predict_and_evaluate(model, predict_dataloaders, device)
+    # 결과 저장 디렉터리 및 파일 경로 설정
+    output_dir = '../../data/results/'
+    output_file = 'prediction_results.csv'
+    output_path = os.path.join(output_dir, output_file)
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print(f"Directory {output_dir} created.")
+
+    # 결과 저장을 위한 리스트 초기화
+    results = []
+
+    # 각 machine_id에 대해 예측 수행 및 결과 저장
+    for machine_id, dataloader in predict_dataloaders.items():
+        machine_predictions = []
+        machine_actuals = []
+
+        with torch.no_grad():
+            for inputs, targets, event_labels in dataloader:
+                inputs, event_labels = inputs.to(device), event_labels.to(device)
+                outputs = model(inputs, event_labels)
+                machine_predictions.append(outputs.cpu().numpy())
+                machine_actuals.append(targets.numpy())
+
+        machine_predictions = np.concatenate(machine_predictions, axis=0)
+        machine_actuals = np.concatenate(machine_actuals, axis=0)
+
+        # 머신 ID별 데이터 추가
+        for pred, actual in zip(machine_predictions, machine_actuals):
+            results.append({
+                "Machine ID": machine_id,  # 머신 ID 추가
+                "Predicted": list(pred),  # 예측값
+                "Actual": list(actual)  # 실제값
+            })
+
+    # 결과를 DataFrame으로 변환
+    results_df = pd.DataFrame(results)
 
     # 결과 저장
-    result_df = pd.DataFrame({
-        "Predicted": [list(p) for p in predictions],
-        "Actual": [list(a) for a in actuals]
-    })
-    result_df.to_csv("prediction_results.csv", index=False)
-    print("Predictions saved to prediction_results.csv")
+    results_df.to_csv(output_path, index=False)
+    print(f"Predictions saved to {output_path}")

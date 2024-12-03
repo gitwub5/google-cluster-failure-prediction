@@ -1,9 +1,10 @@
+import os
+import time  # 시간 측정을 위한 모듈
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader, TensorDataset
 import pandas as pd
-import os
 import numpy as np
 from sklearn.metrics import mean_squared_error, r2_score
 
@@ -137,6 +138,7 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, device, met
         f.write("epoch,loss,mse,rmse,r2\n")
 
     for epoch in range(num_epochs):
+        start_time = time.time()  # Epoch 시작 시간
         model.train()
         total_loss = 0.0
         all_targets, all_reg_preds = [], []
@@ -179,12 +181,16 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, device, met
         with open(metrics_save_path, "a") as f:
             f.write(f"{epoch + 1},{avg_loss:.4f},{mse:.4f},{rmse:.4f},{r2:.4f}\n")
 
-        # 출력
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}, MSE: {mse:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}")
+        # Epoch 실행 시간 출력
+        end_time = time.time()
+        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}, MSE: {mse:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}, Time: {end_time - start_time:.2f} seconds")
 
 
 if __name__ == "__main__":
-    print("모델 학습 시작")
+    start_time = time.time()
+
+    print("Step 1: 데이터 로드 및 전처리 시작")
+    data_load_start = time.time()
     # 주요 설정
     sequence_length = 24
     batch_size = 32
@@ -198,8 +204,8 @@ if __name__ == "__main__":
     event_embedding_dim = 3
 
     # 데이터 파일 경로
-    file_path = '../../data/google_traces_v3/output_data_sampled2.csv'
-    metrics_save_path = '../../data/metrics/metrics2_1.csv'
+    file_path = '../../data/google_traces_v3/train_data.csv'
+    metrics_save_path = '../../data/metrics/metrics2.csv'
     model_save_path = './models/trained_lstm_model.pth'
 
     # 데이터 로드 및 전처리
@@ -207,15 +213,16 @@ if __name__ == "__main__":
     data = data[data['machine_id'] != -1]
     data['event_type_idx'] = pd.Categorical(data['event_type']).codes
     num_event_types = data['event_type_idx'].nunique()
+    print(f"Step 1 완료, 소요 시간: {time.time() - data_load_start:.2f}초")
 
-    # 디바이스 설정
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    # 데이터셋 준비
+    print("Step 2: 데이터셋 준비")
+    dataloader_start = time.time()
     dataloaders = prepare_dataloaders(data, sequence_length, batch_size, features)
     combined_dataloader = combine_dataloaders(dataloaders)
+    print(f"Step 2 완료, 소요 시간: {time.time() - dataloader_start:.2f}초")
 
-    # 모델 초기화
+    print("Step 3: 모델 초기화")
+    model_init_start = time.time()
     model = LSTMModel(
         input_size=input_size,
         hidden_size=hidden_size,
@@ -224,12 +231,12 @@ if __name__ == "__main__":
         num_event_types=num_event_types,
         event_embedding_dim=event_embedding_dim
     ).to(device)
+    print(f"Step 3 완료, 소요 시간: {time.time() - model_init_start:.2f}초")
 
-    # 손실 함수 및 옵티마이저 정의
+    print("Step 4: 학습 시작")
+    training_start = time.time()
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    # 모델 학습
     train_model(
         model=model,
         dataloader=combined_dataloader,
@@ -239,8 +246,12 @@ if __name__ == "__main__":
         device=device,
         metrics_save_path=metrics_save_path
     )
+    print(f"Step 4 완료, 학습 소요 시간: {time.time() - training_start:.2f}초")
 
-    # 학습 완료 메시지
-    print("모델 학습 완료")
+    # 모델 저장
+    print("Step 5: 모델 저장")
+    model_save_start = time.time()
     torch.save(model.state_dict(), model_save_path)
-    print(f"모델이 저장되었습니다: {model_save_path}")
+    print(f"Step 5 완료, 모델 저장 완료. 소요 시간: {time.time() - model_save_start:.2f}초")
+
+    print(f"전체 소요 시간: {time.time() - start_time:.2f}초")

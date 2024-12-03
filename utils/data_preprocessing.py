@@ -4,7 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 # CSV 파일 경로 설정
 input_file = '../data/google_traces_v3/output_data.csv'
-output_file = '../data/google_traces_v3/output_data_preprocessed2.csv'
+output_file = '../data/google_traces_v3/preprocessed_data.csv'
 
 # CSV 파일 읽기
 df = pd.read_csv(input_file)
