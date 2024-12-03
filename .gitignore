@@ -4,9 +4,6 @@
 # 데이터 폴더 내 모든 파일 무시
 data/
 
-models/lstm/models
-models/transformer/models
-
 # Python 캐시 파일 무시
 __pycache__/
 *.py[cod]
