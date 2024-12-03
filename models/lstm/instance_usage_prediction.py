@@ -195,7 +195,7 @@ if __name__ == "__main__":
     sequence_length = 24
     batch_size = 32
     num_epochs = 100
-    learning_rate = 0.0005
+    learning_rate = 0.001
     hidden_size = 100
     num_layers = 1
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
@@ -203,9 +203,13 @@ if __name__ == "__main__":
     output_size = len(features)
     event_embedding_dim = 3
 
+    # 디바이스 설정
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
     # 데이터 파일 경로
     file_path = '../../data/google_traces_v3/train_data.csv'
-    metrics_save_path = '../../data/metrics/metrics2.csv'
+    metrics_save_path = '../../data/metrics/metrics.csv'
     model_save_path = './models/trained_lstm_model.pth'
 
     # 데이터 로드 및 전처리
