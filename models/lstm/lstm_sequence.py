@@ -247,7 +247,7 @@ if __name__ == "__main__":
     print("모델 학습 시작")
     # 주요 설정
     sequence_length = 100  # 슬라이딩 윈도우 크기
-    batch_size = 64  # 배치 크기
+    batch_size = 32  # 배치 크기
     num_epochs = 100  # 학습 반복 수
     learning_rate = 0.0005  # 학습률
     hidden_size = 200  # LSTM 히든 레이어 크기
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     event_embedding_dim = 3  # event_type 임베딩 차원
 
     # 데이터 파일 경로
-    file_path = '../../data/google_traces_v3/output_data_preprocessed.csv.csv'
+    file_path = '../../data/google_traces_v3/output_data_preprocessed.csv'
     metrics_save_path = '../../data/metrics/metrics.csv'
     model_save_path = './models/trained_lstm_model.pth'  # 모델 저장 경로
 
