@@ -3,7 +3,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # 데이터 읽기 (csv_file 경로 수정해줘야함)
-csv_file = '../data/google_traces_v3/output.csv'
+csv_file = '../data/google_traces_v3/output_data.csv'
 df = pd.read_csv(csv_file)
 
 # pandas 출력 옵션 설정 (전체 내용 출력)

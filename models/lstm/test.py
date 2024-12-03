@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
-from multi_time_series import SlidingWindowDataset, MultiTimeSeriesModel
+from failure_prediction import SlidingWindowDataset, MultiTimeSeriesModel
 
 print("Starting bigquery_test.py execution...")  # 맨 위에 추가
 
