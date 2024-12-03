@@ -246,12 +246,12 @@ def train_model(model, dataloader, criterion_reg, criterion_cls, optimizer, num_
 if __name__ == "__main__":
     print("모델 학습 시작")
     # 주요 설정
-    sequence_length = 100  # 슬라이딩 윈도우 크기
+    sequence_length = 50  # 슬라이딩 윈도우 크기
     batch_size = 32  # 배치 크기
     num_epochs = 100  # 학습 반복 수
     learning_rate = 0.0005  # 학습률
-    hidden_size = 200  # LSTM 히든 레이어 크기
-    num_layers = 2  # LSTM 레이어 수
+    hidden_size = 100  # LSTM 히든 레이어 크기
+    num_layers = 1  # LSTM 레이어 수
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']  # 입력 특징
     input_size = len(features)  # 입력 차원 크기
     output_size = len(features)  # 회귀 출력 차원 크기
