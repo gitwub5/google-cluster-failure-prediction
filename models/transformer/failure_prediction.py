@@ -81,8 +81,11 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, device):
         model.train()
         total_loss = 0.0
         for sequences, event_labels, targets, _ in dataloader:
-            sequences, event_labels, targets = sequences.to(device), event_labels.to(device), targets.to(device)
-
+            sequences, event_labels, targets = (
+                sequences.to(device),
+                event_labels.to(device),
+                targets.to(device)
+            )
             optimizer.zero_grad()
             outputs = model(sequences, event_labels)
             loss = criterion(outputs.squeeze(), targets)
@@ -148,7 +151,10 @@ if __name__ == "__main__":
     output_size = 1  # 이진 분류
     num_event_types = data['event_type_idx'].nunique()
 
-    model = TransformerModel(input_size, embedding_dim, num_heads, num_layers, output_size, num_event_types)
+    # 디바이스 설정
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    model = TransformerModel(input_size, embedding_dim, num_heads, num_layers, output_size, num_event_types).to(device)
 
     # 가중치 계산 및 손실 함수 설정
     num_failed = (data['Failed'] == 1).sum()  # 실패한 경우의 수
@@ -157,9 +163,6 @@ if __name__ == "__main__":
     criterion = nn.BCEWithLogitsLoss(pos_weight=class_weight)  # 가중치 적용
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
-
-    # 디바이스 설정
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # 학습
     train_model(model, dataloader, criterion, optimizer, num_epochs=20, device=device)
