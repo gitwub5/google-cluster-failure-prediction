@@ -17,7 +17,7 @@ df['Actual'] = df['Actual'].apply(ast.literal_eval)
 grouped = df.groupby('Machine ID')
 
 # 결과를 저장할 디렉터리
-base_output_dir = '../data/results/instance_usage/plots2/'
+base_output_dir = '../data/results/instance_usage/plots/'
 os.makedirs(base_output_dir, exist_ok=True)
 
 # 성능 지표 저장용 리스트
