@@ -80,7 +80,7 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, device):
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0
-        for sequences, event_labels, targets in dataloader:
+        for sequences, event_labels, targets, _ in dataloader:
             sequences, event_labels, targets = sequences.to(device), event_labels.to(device), targets.to(device)
 
             optimizer.zero_grad()
@@ -149,7 +149,13 @@ if __name__ == "__main__":
     num_event_types = data['event_type_idx'].nunique()
 
     model = TransformerModel(input_size, embedding_dim, num_heads, num_layers, output_size, num_event_types)
-    criterion = nn.BCEWithLogitsLoss()
+
+    # 가중치 계산 및 손실 함수 설정
+    num_failed = (data['Failed'] == 1).sum()  # 실패한 경우의 수
+    num_not_failed = (data['Failed'] == 0).sum()  # 실패하지 않은 경우의 수
+    class_weight = torch.tensor([num_not_failed / num_failed], dtype=torch.float32)  # 실패에 대한 가중치
+    criterion = nn.BCEWithLogitsLoss(pos_weight=class_weight)  # 가중치 적용
+
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
     # 디바이스 설정
@@ -159,8 +165,8 @@ if __name__ == "__main__":
     train_model(model, dataloader, criterion, optimizer, num_epochs=20, device=device)
 
     # 모델 저장
-    # model_save_path = './models/transformer_failure_model.pth'
-    # save_model(model, model_save_path)
+    model_save_path = './models/transformer_failure_model.pth'
+    save_model(model, model_save_path)
 
     # 모델 로드
     model = TransformerModel(input_size, embedding_dim, num_heads, num_layers, output_size, num_event_types).to(device)
