@@ -80,6 +80,7 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, device):
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0
+        print(f"Model device: {next(model.parameters()).device}")
         for sequences, event_labels, targets, _ in dataloader:
             sequences, event_labels, targets = (
                 sequences.to(device),
@@ -95,14 +96,15 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs, device):
 
         print(f"Epoch {epoch + 1}/{num_epochs}, Loss: {total_loss / len(dataloader):.4f}")
 
+# 평가 함수
 def evaluate_model(model, dataloader, device):
     model.eval()
     predictions, actuals = [], []
     with torch.no_grad():
-        for sequences, event_labels, targets in dataloader:
+        for sequences, event_labels, targets, _ in dataloader:
             sequences, event_labels, targets = sequences.to(device), event_labels.to(device), targets.to(device)
             outputs = model(sequences, event_labels)
-            preds = torch.round(torch.sigmoid(outputs.squeeze()))  # 이진 분류
+            preds = torch.round(torch.sigmoid(outputs.squeeze()))
             predictions.extend(preds.cpu().numpy())
             actuals.extend(targets.cpu().numpy())
 
@@ -111,6 +113,7 @@ def evaluate_model(model, dataloader, device):
     recall = recall_score(actuals, predictions)
     f1 = f1_score(actuals, predictions)
     print(f"Accuracy: {accuracy:.4f}, Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1:.4f}")
+
 
 # 모델 저장 함수
 def save_model(model, save_path):
@@ -127,23 +130,16 @@ def load_model(model, load_path, device):
 
 # 실행
 if __name__ == "__main__":
-    # 데이터 준비
+    # 데이터 로드 및 전처리
     file_path = '../../data/google_traces_v3/train_data.csv'
     data = pd.read_csv(file_path)
-
-    # 전처리
     data['event_type_idx'] = pd.Categorical(data['event_type']).codes
-    print("Train event_type_idx:", data['event_type_idx'].unique())
-
-    sequence_length = 24
-    features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
-    dataset = SequenceDataset(data, sequence_length, features, target_col='Failed')
-
-    # DataLoader 준비
-    batch_size = 32
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    # print("Train event_type_idx:", data['event_type_idx'].unique())
 
     # Transformer 모델 설정
+    features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
+    sequence_length = 24
+    batch_size = 32
     input_size = len(features)
     embedding_dim = 16
     num_heads = 4
@@ -151,16 +147,18 @@ if __name__ == "__main__":
     output_size = 1  # 이진 분류
     num_event_types = data['event_type_idx'].nunique()
 
+    dataset = SequenceDataset(data, sequence_length, features, target_col='Failed')
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
     # 디바이스 설정
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     model = TransformerModel(input_size, embedding_dim, num_heads, num_layers, output_size, num_event_types).to(device)
 
     # 가중치 계산 및 손실 함수 설정
     num_failed = (data['Failed'] == 1).sum()  # 실패한 경우의 수
     num_not_failed = (data['Failed'] == 0).sum()  # 실패하지 않은 경우의 수
-    class_weight = torch.tensor([num_not_failed / num_failed], dtype=torch.float32)  # 실패에 대한 가중치
-    criterion = nn.BCEWithLogitsLoss(pos_weight=class_weight)  # 가중치 적용
+    pos_weight = torch.tensor(num_not_failed / num_failed, dtype=torch.float32).to(device) # 실패에 대한 가중치
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     optimizer = optim.Adam(model.parameters(), lr=0.001)
 
