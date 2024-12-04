@@ -109,14 +109,23 @@ if __name__ == "__main__":
     # DataLoader 준비
     predict_dataloaders = prepare_predict_dataloader(predict_data, sequence_length, features)
 
-    # 학습된 모델 로드
+    # 학습된 모델 로드 및 평가 모드 설정
     model_path = "models/trained_lstm_model.pth"
-    model = LSTMModel(input_size, hidden_size, num_layers, output_size, num_event_types, event_embedding_dim).to(device)
-    model.load_state_dict(torch.load(model_path))
-    print(f"Model loaded from {model_path}")
+    model = LSTMModel(input_size, hidden_size, num_layers, output_size, num_event_types, event_embedding_dim)
+
+    if device.type == 'cpu':
+        print("Loading model on CPU...")
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    else:
+        print("Loading model on GPU...")
+        model.load_state_dict(torch.load(model_path))
+
+    model.to(device)
+    model.eval()  # 평가 모드로 전환
+    print(f"Model loaded from {model_path} and set to eval mode.")
 
     # 결과 저장 디렉터리 및 파일 경로 설정
-    output_dir = '../../data/results/'
+    output_dir = '../../data/results/instance_usage'
     output_file = 'prediction_results.csv'
     output_path = os.path.join(output_dir, output_file)
 

@@ -15,6 +15,7 @@ class SequenceDataset(Dataset):
         self.features = features
         self.target_col = target_col
         self.machine_sequences = {}  # machine_id별 시퀀스 저장
+        self.machine_ids = []
         self.prepare_data()
 
     def prepare_data(self):
@@ -36,6 +37,8 @@ class SequenceDataset(Dataset):
                 'targets': sequence_targets
             }
 
+            self.machine_ids.extend([machine_id] * len(sequences))
+
     def __len__(self):
         return sum(len(seq_data['sequences']) for seq_data in self.machine_sequences.values())
 
@@ -47,7 +50,8 @@ class SequenceDataset(Dataset):
                 return (
                     torch.tensor(seq_data['sequences'][idx], dtype=torch.float32),
                     torch.tensor(seq_data['event_labels'][idx], dtype=torch.long),
-                    torch.tensor(seq_data['targets'][idx], dtype=torch.float32)
+                    torch.tensor(seq_data['targets'][idx], dtype=torch.float32),
+                    machine_id
                 )
             idx -= len(seq_data['sequences'])
 
@@ -123,10 +127,11 @@ if __name__ == "__main__":
     # 데이터 준비
     file_path = '../../data/google_traces_v3/train_data.csv'
     data = pd.read_csv(file_path)
-    print(data.columns)
 
     # 전처리
     data['event_type_idx'] = pd.Categorical(data['event_type']).codes
+    print("Train event_type_idx:", data['event_type_idx'].unique())
+
     sequence_length = 24
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
     dataset = SequenceDataset(data, sequence_length, features, target_col='Failed')
@@ -154,8 +159,8 @@ if __name__ == "__main__":
     train_model(model, dataloader, criterion, optimizer, num_epochs=20, device=device)
 
     # 모델 저장
-    model_save_path = './models/transformer_failure_model.pth'
-    save_model(model, model_save_path)
+    # model_save_path = './models/transformer_failure_model.pth'
+    # save_model(model, model_save_path)
 
     # 모델 로드
     model = TransformerModel(input_size, embedding_dim, num_heads, num_layers, output_size, num_event_types).to(device)

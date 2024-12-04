@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, r2_score
 
 # CSV 파일 읽기
-result_file = '../data/results/prediction_results.csv'
+result_file = '../data/results/instance_usage/prediction_results.csv'
 df = pd.read_csv(result_file)
 
 # 문자열로 저장된 리스트를 실제 리스트로 변환
@@ -17,7 +17,7 @@ df['Actual'] = df['Actual'].apply(ast.literal_eval)
 grouped = df.groupby('Machine ID')
 
 # 결과를 저장할 디렉터리
-base_output_dir = '../data/results/plots/'
+base_output_dir = '../data/results/instance_usage/plots2/'
 os.makedirs(base_output_dir, exist_ok=True)
 
 # 성능 지표 저장용 리스트
@@ -72,6 +72,6 @@ for machine_id, group in grouped:
 metrics_df = pd.DataFrame(performance_metrics)
 
 # 성능 지표 저장 경로
-metrics_output_file = '../data/results/performance_metrics.csv'
+metrics_output_file = '../data/results/instance_usage/performance_metrics.csv'
 metrics_df.to_csv(metrics_output_file, index=False)
 print(f"Performance metrics saved to {metrics_output_file}")
