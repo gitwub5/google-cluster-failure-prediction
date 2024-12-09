@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 
-train_machine_count = 200
-test_machine_count = 40  # 학습 머신의 20%
+train_machine_count = 20
+test_machine_count = 2  # 학습 머신의 20%
 
 # 데이터 파일 경로
 input_file = '../data/google_traces_v3/preprocessed_data.csv'

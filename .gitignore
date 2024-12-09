@@ -20,3 +20,6 @@ __pycache__/
 
 # Utils 내 특정 파일 무시
 utils/google_traces_v3_json.py
+
+models/lstm/models/
+models/transformer/models/

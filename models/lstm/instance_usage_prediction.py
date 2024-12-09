@@ -7,16 +7,17 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 import pandas as pd
 import numpy as np
 from sklearn.metrics import mean_squared_error, r2_score
+from early_stopping import EarlyStopping
 
 # 성능 지표 저장용 딕셔너리 선언
 epoch_metrics = {
     "epoch": [],
-    "loss": [],
+    "train_loss": [],
+    "val_loss": [],
     "mse": [],
     "rmse": [],
     "r2": []
 }
-
 
 # 데이터셋 클래스 정의
 class SequenceDataset(Dataset):
@@ -32,71 +33,46 @@ class SequenceDataset(Dataset):
 
         for machine_id, group in grouped:
             values = group[self.features].values  # 여러 특성의 값 추출
-            event_types = group['event_type_idx'].values
 
-            sequences, targets, event_labels = [], [], []
+            sequences, targets = [], []
             for i in range(len(values) - self.sequence_length):
                 sequences.append(values[i:i + self.sequence_length])
                 targets.append(values[i + self.sequence_length])
-                event_labels.append(event_types[i + self.sequence_length])
 
             self.machine_sequences[machine_id] = {
                 'sequences': sequences,
-                'targets': targets,
-                'event_labels': event_labels
+                'targets': targets
             }
 
     def get_machine_dataset(self, machine_id):
         if machine_id not in self.machine_sequences:
             raise ValueError(f"Machine ID {machine_id} not found in dataset.")
         data = self.machine_sequences[machine_id]
-
-        # 각 데이터 변환
         sequences = torch.tensor(np.array(data['sequences']), dtype=torch.float32)
         targets = torch.tensor(np.array(data['targets']), dtype=torch.float32)
-        event_labels = torch.tensor(np.array(data['event_labels']), dtype=torch.long)
-
-        # 데이터 길이 확인
-        assert len(sequences) == len(targets) == len(event_labels), \
-            "Lengths of sequences, targets, and event_labels must match."
-
-        return TensorDataset(sequences, targets, event_labels)
+        return TensorDataset(sequences, targets)
 
 
 # LSTM 모델 정의
 class LSTMModel(nn.Module):
-    def __init__(self, input_size, hidden_size, num_layers, output_size, num_event_types, event_embedding_dim):
+    def __init__(self, input_size, hidden_size, num_layers, output_size):
         """
-        LSTM 기반 성능 예측 모델
+        LSTM 기반 성능 예측 모델 (event_type 임베딩 제거)
         """
         super(LSTMModel, self).__init__()
-
-        # Event Type Embedding Layer
-        self.event_embedding = nn.Embedding(num_event_types, event_embedding_dim)
-
         # LSTM Layer
-        self.lstm = nn.LSTM(input_size + event_embedding_dim, hidden_size, num_layers, batch_first=True)
-
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
         # Fully Connected Layer for Regression
         self.fc_regression = nn.Linear(hidden_size, output_size)
 
-    def forward(self, x, event_type_idx):
+    def forward(self, x):
         """
         모델의 Forward Pass
         """
-        # Event Type Embedding
-        event_embedding = self.event_embedding(event_type_idx)  # (batch_size, embedding_dim)
-        event_embedding = event_embedding.unsqueeze(1).repeat(1, x.size(1), 1)
-
-        # 입력 데이터와 이벤트 임베딩 결합
-        x = torch.cat((x, event_embedding), dim=2)
-
         # LSTM Forward
         _, (hidden, _) = self.lstm(x)
-
         # Regression Output
         regression_output = self.fc_regression(hidden[-1])  # (batch_size, output_size)
-
         return regression_output
 
 
@@ -112,79 +88,65 @@ def prepare_dataloaders(data, sequence_length, batch_size, features):
 
 
 def combine_dataloaders(dataloaders):
-    all_sequences, all_targets, all_event_labels = [], [], []
+    all_sequences, all_targets = [], []
     for dataloader in dataloaders.values():
-        for sequences, targets, event_labels in dataloader:
+        for sequences, targets in dataloader:
             all_sequences.append(sequences)
             all_targets.append(targets)
-            all_event_labels.append(event_labels)
     combined_dataset = TensorDataset(
         torch.cat(all_sequences, dim=0),
-        torch.cat(all_targets, dim=0),
-        torch.cat(all_event_labels, dim=0)
+        torch.cat(all_targets, dim=0)
     )
     return DataLoader(combined_dataset, batch_size=batch_size, shuffle=True)
 
 
 # 학습 함수
-def train_model(model, dataloader, criterion, optimizer, num_epochs, device, metrics_save_path):
-    # 디렉터리 생성
-    metrics_dir = os.path.dirname(metrics_save_path)
-    if metrics_dir and not os.path.exists(metrics_dir):
-        os.makedirs(metrics_dir)
+def train_model(model, train_dataloader, criterion, optimizer, device):
+    start_time = time.time()  # Epoch 시작 시간
+    model.train()
+    total_loss = 0.0
+    all_targets, all_reg_preds = [], []
 
-    # CSV 파일 초기화
-    with open(metrics_save_path, "w") as f:
-        f.write("epoch,loss,mse,rmse,r2\n")
+    for sequences, targets in train_dataloader:
+        sequences, targets = sequences.to(device), targets.to(device)
 
-    for epoch in range(num_epochs):
-        start_time = time.time()  # Epoch 시작 시간
-        model.train()
-        total_loss = 0.0
-        all_targets, all_reg_preds = [], []
+        optimizer.zero_grad()  # 기울기 초기화
+        reg_output = model(sequences)  # 모델 출력 계산
+        loss = criterion(reg_output, targets)  # 손실 계산
+        loss.backward()  # 역전파
+        optimizer.step()  # 가중치 업데이트
+        total_loss += loss.item()
 
-        for sequences, targets, event_labels in dataloader:
+    train_time = time.time() - start_time
+    avg_loss = total_loss / len(train_dataloader)  # 평균 손실 계산
+    return avg_loss, train_time
+
+def evaluate_model(model, val_dataloader, criterion, device):
+    model.eval()  # 평가 모드 설정
+    total_loss = 0.0
+    all_targets, all_reg_preds = [], []
+
+    with torch.no_grad():  # 평가 시에는 기울기 계산 비활성화
+        for sequences, targets in val_dataloader:
             sequences, targets = sequences.to(device), targets.to(device)
-            event_labels = event_labels.to(device)
-
-            optimizer.zero_grad()
-            reg_output = model(sequences, event_labels)
+            reg_output = model(sequences)
             loss = criterion(reg_output, targets)
-            loss.backward()
-            optimizer.step()
             total_loss += loss.item()
 
-            # 성능 지표 계산
-            all_targets.append(targets.cpu().detach().numpy())
-            all_reg_preds.append(reg_output.cpu().detach().numpy())
+            # 예측값 및 실제값 저장
+            all_targets.append(targets.cpu().numpy())
+            all_reg_preds.append(reg_output.cpu().numpy())
 
-        # Flatten targets and predictions
-        all_targets = np.concatenate(all_targets, axis=0)
-        all_reg_preds = np.concatenate(all_reg_preds, axis=0)
+    avg_loss = total_loss / len(val_dataloader)  # 평균 손실 계산
+    all_targets = np.concatenate(all_targets, axis=0)
+    all_reg_preds = np.concatenate(all_reg_preds, axis=0)
 
-        # MSE, RMSE, R² 계산
-        mse = mean_squared_error(all_targets, all_reg_preds)
-        rmse = np.sqrt(mse)
-        r2 = r2_score(all_targets, all_reg_preds)
+    # 성능 메트릭 계산
+    mse = mean_squared_error(all_targets, all_reg_preds)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(all_targets, all_reg_preds)
 
-        # Epoch별 성능 지표 계산
-        avg_loss = total_loss / len(dataloader)
-
-        # 성능 지표 업데이트
-        epoch_metrics["epoch"].append(epoch + 1)
-        epoch_metrics["loss"].append(avg_loss)
-        epoch_metrics["mse"].append(mse)
-        epoch_metrics["rmse"].append(rmse)
-        epoch_metrics["r2"].append(r2)
-
-        # CSV 파일에 성능 지표 저장
-        with open(metrics_save_path, "a") as f:
-            f.write(f"{epoch + 1},{avg_loss:.4f},{mse:.4f},{rmse:.4f},{r2:.4f}\n")
-
-        # Epoch 실행 시간 출력
-        end_time = time.time()
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {avg_loss:.4f}, MSE: {mse:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}, Time: {end_time - start_time:.2f} seconds")
-
+    return avg_loss, mse, rmse, r2
 
 if __name__ == "__main__":
     start_time = time.time()
@@ -194,18 +156,16 @@ if __name__ == "__main__":
     # 주요 설정
     sequence_length = 24
     batch_size = 32
-    num_epochs = 1000
-    learning_rate = 0.0005
-    hidden_size = 100
-    num_layers = 1
+    num_epochs = 100
+    learning_rate = 0.001
+    hidden_size = 128
+    num_layers = 4
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
     input_size = len(features)
     output_size = len(features)
-    event_embedding_dim = 3
 
     # 디바이스 설정
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
 
     # 데이터 파일 경로
     file_path = '../../data/google_traces_v3/train_data.csv'
@@ -215,14 +175,21 @@ if __name__ == "__main__":
     # 데이터 로드 및 전처리
     data = pd.read_csv(file_path)
     data = data[data['machine_id'] != -1]
-    data['event_type_idx'] = pd.Categorical(data['event_type']).codes
-    num_event_types = data['event_type_idx'].nunique()
     print(f"Step 1 완료, 소요 시간: {time.time() - data_load_start:.2f}초")
 
     print("Step 2: 데이터셋 준비")
     dataloader_start = time.time()
     dataloaders = prepare_dataloaders(data, sequence_length, batch_size, features)
     combined_dataloader = combine_dataloaders(dataloaders)
+
+    # Train-validation split
+    dataset = combined_dataloader.dataset  # 데이터셋 가져오기
+    train_size = int(0.8 * len(dataset))
+    val_size = len(dataset) - train_size
+    train_dataset, val_dataset = torch.utils.data.random_split(combined_dataloader.dataset, [train_size, val_size])
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
     print(f"Step 2 완료, 소요 시간: {time.time() - dataloader_start:.2f}초")
 
     print("Step 3: 모델 초기화")
@@ -232,8 +199,6 @@ if __name__ == "__main__":
         hidden_size=hidden_size,
         num_layers=num_layers,
         output_size=output_size,
-        num_event_types=num_event_types,
-        event_embedding_dim=event_embedding_dim
     ).to(device)
     print(f"Step 3 완료, 소요 시간: {time.time() - model_init_start:.2f}초")
 
@@ -241,15 +206,44 @@ if __name__ == "__main__":
     training_start = time.time()
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    train_model(
-        model=model,
-        dataloader=combined_dataloader,
-        criterion=criterion,
-        optimizer=optimizer,
-        num_epochs=num_epochs,
-        device=device,
-        metrics_save_path=metrics_save_path
-    )
+
+    # EarlyStopping 초기화
+    early_stopping = EarlyStopping(patience=10, verbose=True, path=model_save_path)
+
+    # CSV 파일 초기화
+    with open(metrics_save_path, "w") as f:
+        f.write("epoch,train_loss,val_loss,mse,rmse,r2\n")
+
+    # 학습 및 평가
+    for epoch in range(num_epochs):
+        print(f"Epoch {epoch + 1}/{num_epochs}")
+        train_loss, train_time = train_model(model, train_dataloader, criterion, optimizer, device)
+        val_loss, mse, rmse, r2 = evaluate_model(model, val_dataloader, criterion, device)
+
+        # 성능 지표 저장
+        epoch_metrics["epoch"].append(epoch + 1)
+        epoch_metrics["train_loss"].append(train_loss)
+        epoch_metrics["val_loss"].append(val_loss)
+        epoch_metrics["mse"].append(mse)
+        epoch_metrics["rmse"].append(rmse)
+        epoch_metrics["r2"].append(r2)
+
+        with open(metrics_save_path, "a") as f:
+            f.write(f"{epoch + 1},{train_loss:.4f},{val_loss:.4f},{mse:.4f},{rmse:.4f},{r2:.4f}\n")
+
+        # 성능 지표 출력
+        print(
+            f"Train Loss: {train_loss:.4f}, "
+            f"Validation Loss: {val_loss:.4f}, "
+            f"MSE: {mse:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}, "
+        )
+
+        # Early Stopping 적용
+        early_stopping(val_loss, model)
+        if early_stopping.early_stop:
+            print(f"{epoch + 1} - Early stopping triggered.")
+            break
+
     print(f"Step 4 완료, 학습 소요 시간: {time.time() - training_start:.2f}초")
 
     # 모델 저장
