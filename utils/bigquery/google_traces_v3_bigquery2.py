@@ -58,7 +58,7 @@ query_job = client.query(query)
 results = query_job.result()
 
 # 결과를 CSV로 저장
-output_dir = '../data/google_traces_v3'
+output_dir = '../../data/google_traces_v3'
 os.makedirs(output_dir, exist_ok=True)  # 디렉터리가 없으면 생성
 output_file = os.path.join(output_dir, 'instance_usage_data.csv')
 
@@ -67,7 +67,8 @@ with open(output_file, "w", newline="") as csv_file:
 
     # 헤더 작성
     headers = [
-        "machine_id", "start_time", "end_time", "collection_id", "alloc_collection_id",
+        "machine_id", "start_time", "end_time",
+        "collection_id", "alloc_collection_id",
         "average_usage_cpus", "average_usage_memory",
         "maximum_usage_cpus", "maximum_usage_memory",
         "assigned_memory", "page_cache_memory",

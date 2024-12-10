@@ -48,7 +48,7 @@ def predict_and_save_results(model, dataloader, device, output_dir):
                 grouped_results[machine_id]["Predicted"].append(probabilities[i])
                 grouped_results[machine_id]["Actual"].append(actuals[i])
 
-    # Save CSV and generate plots for each machine
+    # Save CSV and generate plots3 for each machine
     for machine_id, results in grouped_results.items():
         # Convert results to DataFrame
         machine_results = pd.DataFrame({

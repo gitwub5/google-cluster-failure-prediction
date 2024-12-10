@@ -157,7 +157,7 @@ if __name__ == "__main__":
     sequence_length = 24
     batch_size = 32
     num_epochs = 100
-    learning_rate = 0.001
+    learning_rate = 0.0005
     hidden_size = 128
     num_layers = 4
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']

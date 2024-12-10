@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # CSV 파일 로드
-metrics_save_path = '../data/metrics/metrics.csv'
+metrics_save_path = '../../data/metrics/metrics.csv'
 metrics_df = pd.read_csv(metrics_save_path)
 
 # 데이터 확인

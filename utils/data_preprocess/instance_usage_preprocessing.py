@@ -3,8 +3,8 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
 # CSV 파일 경로 설정
-input_file = '../data/google_traces_v3/instance_usage_data.csv'
-output_file = '../data/google_traces_v3/preprocessed_instance_usage.csv'
+input_file = '../../data/google_traces_v3/instance_usage_data.csv'
+output_file = '../../data/google_traces_v3/instance_usage_preprocessed.csv'
 
 # CSV 파일 읽기
 df = pd.read_csv(input_file)
@@ -57,9 +57,9 @@ for machine_id, group in df.groupby("machine_id"):
             'machine_id': machine_id,
             'start_time': current_time,
             'end_time': next_time,
-            'average_usage_cpu': total_cpu_usage / interval,
+            'average_usage_cpus': total_cpu_usage / interval,
             'average_usage_memory': total_memory_usage / interval,
-            'maximum_usage_cpu': max_cpus,
+            'maximum_usage_cpus': max_cpus,
             'maximum_usage_memory': max_memory
         })
 
@@ -73,5 +73,15 @@ else:
 
 # 전처리된 DataFrame 저장
 aggregated_df = pd.DataFrame(aggregated_data)
+#
+# # <Min-Max Scaling 추가>
+# columns_to_scale = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
+# scaler = MinMaxScaler()
+#
+# # 스케일링 적용
+# aggregated_df[columns_to_scale] = scaler.fit_transform(aggregated_df[columns_to_scale])
+# print(f"Min-Max Scaling 적용 완료")
+
+# 전처리된 DataFrame 저장
 aggregated_df.to_csv(output_file, index=False)
 print(f"전처리 완료 및 파일 저장됨 -> {output_file}")

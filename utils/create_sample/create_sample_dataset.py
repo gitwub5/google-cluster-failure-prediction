@@ -5,9 +5,9 @@ train_machine_count = 20
 test_machine_count = 10  # 학습 머신의 20%
 
 # 데이터 파일 경로
-input_file = '../data/google_traces_v3/preprocessed_data.csv'
-train_output_file = '../data/google_traces_v3/train_data.csv'
-test_output_file = '../data/google_traces_v3/test_data.csv'
+input_file = '../../data/google_traces_v3/preprocessed_data.csv'
+train_output_file = '../../data/google_traces_v3/train_data.csv'
+test_output_file = '../../data/google_traces_v3/test_data.csv'
 
 # CSV 파일 읽기
 df = pd.read_csv(input_file)

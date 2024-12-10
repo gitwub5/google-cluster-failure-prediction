@@ -18,13 +18,14 @@ class LSTMModel(nn.Module):
         regression_output = self.fc_regression(hidden[-1])
         return regression_output
 
-# 데이터셋 클래스 정의 (이전 코드와 동일)
+# 데이터셋 클래스 정의
 class SequenceDataset(Dataset):
     def __init__(self, data, sequence_length, features):
         self.data = data
         self.sequence_length = sequence_length
         self.features = features
         self.machine_sequences = {}
+        self.start_times = {}  # start_time 저장
         self.prepare_data()
 
     def prepare_data(self):
@@ -32,52 +33,58 @@ class SequenceDataset(Dataset):
         for machine_id, group in grouped:
             values = group[self.features].values
             sequences, targets = [], []
+            start_times = []  # start_time 저장용 리스트
             for i in range(len(values) - self.sequence_length):
                 sequences.append(values[i:i + self.sequence_length])
                 targets.append(values[i + self.sequence_length])
+                start_times.append(group.iloc[i + self.sequence_length]['start_time'])  # start_time 추가
             self.machine_sequences[machine_id] = {
                 'sequences': sequences,
                 'targets': targets,
             }
+            self.start_times[machine_id] = start_times  # start_time 저장
 
     def get_machine_dataset(self, machine_id):
         data = self.machine_sequences[machine_id]
         sequences = torch.tensor(np.array(data['sequences']), dtype=torch.float32)
         targets = torch.tensor(np.array(data['targets']), dtype=torch.float32)
-        return TensorDataset(sequences, targets)
+        start_times = self.start_times[machine_id]
+        return TensorDataset(sequences, targets), start_times
 
 
-# 데이터 준비
+# DataLoader 준비
 def prepare_predict_dataloader(data, sequence_length, features):
     dataset = SequenceDataset(data, sequence_length, features)
     dataloaders = {}
     for machine_id in dataset.machine_sequences.keys():
         if len(dataset.machine_sequences[machine_id]['sequences']) == 0:
             continue
-        machine_dataset = dataset.get_machine_dataset(machine_id)
-        dataloaders[machine_id] = DataLoader(machine_dataset, batch_size=1, shuffle=False)
+        machine_dataset, start_times = dataset.get_machine_dataset(machine_id)
+        dataloaders[machine_id] = (DataLoader(machine_dataset, batch_size=1, shuffle=False), start_times)
     return dataloaders
 
 # 성능 예측 및 평가
-def predict_and_evaluate(model, dataloaders, device):
-    predictions, actuals = [], []
-    for machine_id, dataloader in dataloaders.items():
+def predict_and_evaluate_with_time(model, dataloaders, device):
+    results = []
+    for machine_id, (dataloader, start_times) in dataloaders.items():
         print(f"Predicting for Machine ID: {machine_id}")
+        machine_predictions, machine_actuals, machine_start_times = [], [], []
         with torch.no_grad():
-            for inputs, targets in dataloader:
+            for idx, (inputs, targets) in enumerate(dataloader):
                 inputs = inputs.to(device)
                 outputs = model(inputs)
-                predictions.append(outputs.cpu().numpy())
-                actuals.append(targets.numpy())
-    predictions = np.concatenate(predictions, axis=0)
-    actuals = np.concatenate(actuals, axis=0)
+                machine_predictions.append(outputs.cpu().numpy())
+                machine_actuals.append(targets.numpy())
+                machine_start_times.append(start_times[idx])  # start_time 추가
+        for pred, actual, start_time in zip(machine_predictions, machine_actuals, machine_start_times):
+            results.append({
+                "Machine ID": machine_id,
+                "Start Time": start_time,
+                "Predicted": list(pred.flatten()),
+                "Actual": list(actual.flatten())
+            })
+    return results
 
-    mse = mean_squared_error(actuals, predictions)
-    rmse = np.sqrt(mse)
-    r2 = r2_score(actuals, predictions)
-
-    print(f"MSE: {mse:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}")
-    return predictions, actuals
 
 if __name__ == "__main__":
     # 주요 설정
@@ -88,7 +95,7 @@ if __name__ == "__main__":
     hidden_size = 128
     num_layers = 4
 
-    # 새로운 데이터 파일 경로
+    # 데이터 파일 경로
     predict_file_path = '../../data/google_traces_v3/test_data.csv'
     predict_data = pd.read_csv(predict_file_path)
     predict_data = predict_data[predict_data['machine_id'] != -1]
@@ -105,10 +112,10 @@ if __name__ == "__main__":
 
     if device.type == 'cpu':
         print("Loading model on CPU...")
-        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'), weights_only=True))
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     else:
         print("Loading model on GPU...")
-        model.load_state_dict(torch.load(model_path, weights_only=True))
+        model.load_state_dict(torch.load(model_path))
 
     model.to(device)
     model.eval()  # 평가 모드로 전환
@@ -124,25 +131,7 @@ if __name__ == "__main__":
         print(f"Directory {output_dir} created.")
 
     # 예측 및 결과 저장
-    predictions, actuals = predict_and_evaluate(model, predict_dataloaders, device)
-    results = []
-    for machine_id, dataloader in predict_dataloaders.items():
-        machine_predictions = []
-        machine_actuals = []
-        with torch.no_grad():
-            for inputs, targets in dataloader:
-                inputs = inputs.to(device)
-                outputs = model(inputs)
-                machine_predictions.append(outputs.cpu().numpy())
-                machine_actuals.append(targets.numpy())
-        machine_predictions = np.concatenate(machine_predictions, axis=0)
-        machine_actuals = np.concatenate(machine_actuals, axis=0)
-        for pred, actual in zip(machine_predictions, machine_actuals):
-            results.append({
-                "Machine ID": machine_id,
-                "Predicted": list(pred),
-                "Actual": list(actual)
-            })
+    results = predict_and_evaluate_with_time(model, predict_dataloaders, device)
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_path, index=False)
     print(f"Predictions saved to {output_path}")

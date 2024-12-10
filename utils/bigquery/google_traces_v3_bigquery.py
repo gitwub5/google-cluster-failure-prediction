@@ -72,7 +72,7 @@ print("Main query executed successfully.")
 #     print("All Instance Usage records have exactly one or zero Collection Event.")
 
 # 6. 주 쿼리 결과를 CSV 파일로 저장
-output_dir = '../data/google_traces_v3'
+output_dir = '../../data/google_traces_v3'
 os.makedirs(output_dir, exist_ok=True)
 output_file = os.path.join(output_dir, "output_data2.csv")
 
