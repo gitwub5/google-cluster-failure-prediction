@@ -148,7 +148,7 @@ if __name__ == "__main__":
     num_event_types = data['event_type_idx'].nunique()
 
     dataset = SequenceDataset(data, sequence_length, features, target_col='Failed')
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
 
     # 디바이스 설정
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

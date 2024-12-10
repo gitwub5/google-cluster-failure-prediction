@@ -83,13 +83,13 @@ def prepare_dataloaders(data, sequence_length, batch_size, features):
         if len(dataset.machine_sequences[machine_id]['sequences']) == 0:
             continue
         machine_dataset = dataset.get_machine_dataset(machine_id)
-        dataloaders[machine_id] = DataLoader(machine_dataset, batch_size=batch_size, shuffle=True)
+        dataloaders[machine_id] = DataLoader(machine_dataset, batch_size=batch_size, shuffle=False)
     return dataloaders
 
 
 def combine_dataloaders(dataloaders):
     all_sequences, all_targets = [], []
-    for dataloader in dataloaders.values():
+    for machine_id, dataloader in dataloaders.items():
         for sequences, targets in dataloader:
             all_sequences.append(sequences)
             all_targets.append(targets)
@@ -97,7 +97,7 @@ def combine_dataloaders(dataloaders):
         torch.cat(all_sequences, dim=0),
         torch.cat(all_targets, dim=0)
     )
-    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=True)
+    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False)
 
 
 # 학습 함수
@@ -187,7 +187,7 @@ if __name__ == "__main__":
     train_size = int(0.8 * len(dataset))
     val_size = len(dataset) - train_size
     train_dataset, val_dataset = torch.utils.data.random_split(combined_dataloader.dataset, [train_size, val_size])
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False)
     val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
     print(f"Step 2 완료, 소요 시간: {time.time() - dataloader_start:.2f}초")
@@ -236,6 +236,7 @@ if __name__ == "__main__":
             f"Train Loss: {train_loss:.4f}, "
             f"Validation Loss: {val_loss:.4f}, "
             f"MSE: {mse:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}, "
+            f"Time: {train_time:.4f} "
         )
 
         # Early Stopping 적용
