@@ -7,8 +7,8 @@ train_output_file = '../../data/google_traces_v3/train_data.csv'
 test_output_file = '../../data/google_traces_v3/test_data.csv'
 
 # 학습 및 테스트 데이터에 사용할 머신 수
-train_machine_count = 100
-test_machine_count = 2
+train_machine_count = 180
+test_machine_count = 5
 
 # 랜덤 시드 설정
 np.random.seed(42)

@@ -93,7 +93,7 @@ if __name__ == "__main__":
     input_size = len(features)
     output_size = len(features)
     hidden_size = 128
-    num_layers = 4
+    num_layers = 8
 
     # 데이터 파일 경로
     predict_file_path = '../../data/google_traces_v3/test_data.csv'
@@ -112,10 +112,10 @@ if __name__ == "__main__":
 
     if device.type == 'cpu':
         print("Loading model on CPU...")
-        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+        model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'), weights_only=True))
     else:
         print("Loading model on GPU...")
-        model.load_state_dict(torch.load(model_path))
+        model.load_state_dict(torch.load(model_path, weights_only=True))
 
     model.to(device)
     model.eval()  # 평가 모드로 전환

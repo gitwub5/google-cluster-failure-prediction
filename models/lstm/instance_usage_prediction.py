@@ -159,7 +159,7 @@ if __name__ == "__main__":
     num_epochs = 100
     learning_rate = 0.0005
     hidden_size = 128
-    num_layers = 4
+    num_layers = 8
     features = ['average_usage_cpus', 'average_usage_memory', 'maximum_usage_cpus', 'maximum_usage_memory']
     input_size = len(features)
     output_size = len(features)
